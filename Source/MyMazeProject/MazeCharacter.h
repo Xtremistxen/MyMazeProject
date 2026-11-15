@@ -1,4 +1,5 @@
 
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -7,21 +8,46 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+class UAnimMontage;
 
 UCLASS()
 class MYMAZEPROJECT_API AMazeCharacter : public ACharacter
 {
     GENERATED_BODY()
 
-
 public:
     AMazeCharacter();
+
+    // Maximum player health
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+    float maxHealth = 100.0f;
+
+    // Apply incoming damage and return the actual damage taken
+    virtual float TakeDamage(
+        float DamageAmount,
+        struct FDamageEvent const& DamageEvent,
+        class AController* EventInstigator,
+        AActor* DamageCauser) override;
+
+    // Animation played once when the player dies
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+    UAnimMontage* DeathMontage = nullptr;
 
 protected:
     virtual void BeginPlay() override;
 
     virtual void SetupPlayerInputComponent(
         UInputComponent* PlayerInputComponent) override;
+
+    // Current player health
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+    float _currentHealth = 100.0f;
+
+    // Prevent repeated death processing
+    bool bIsDead = false;
+
+    // Stop player movement and play the death animation
+    void Die();
 
     // Player movement
     void MoveFB(float Value);
@@ -39,5 +65,4 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     UCameraComponent* FollowCamera;
 };
-
 
