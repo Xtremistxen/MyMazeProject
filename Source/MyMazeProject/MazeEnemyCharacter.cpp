@@ -1,6 +1,8 @@
 
 #include "MazeEnemyCharacter.h"
-
+#include "AIController.h"
+#include "BrainComponent.h"
+#include "TimerManager.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -33,7 +35,8 @@ void AMazeEnemyCharacter::BeginPlay()
 
 bool AMazeEnemyCharacter::CanAttack() const
 {
-    if (!GetWorld())
+    // Stunned enemies can't attack
+    if (bIsStunned || !GetWorld())
     {
         return false;
     }
@@ -46,6 +49,12 @@ bool AMazeEnemyCharacter::CanAttack() const
 
 void AMazeEnemyCharacter::PerformAttack()
 {
+    // Don't allow attacks while the enemy is stunned
+    if (bIsStunned)
+    {
+        return;
+    }
+
     if (!CanAttack() || !AttackMontage)
     {
         return;
@@ -80,6 +89,20 @@ void AMazeEnemyCharacter::PerformAttack()
 
 void AMazeEnemyCharacter::ApplyMeleeDamage()
 {
+
+    // Debug whether the enemy is stunned when the hit happens
+    UE_LOG(LogTemp, Warning,
+        TEXT("MELEE CHECK | Enemy: %s | Stunned: %s"),
+        *GetName(),
+        bIsStunned ? TEXT("YES") : TEXT("NO"));
+
+
+    // Don't deal damage while stunned
+    if (bIsStunned)
+    {
+        return;
+    }
+
     // Only one successful hit per attack
     if (bHasHitThisAttack)
     {
@@ -117,6 +140,126 @@ void AMazeEnemyCharacter::ApplyMeleeDamage()
 
     UE_LOG(LogTemp, Log, TEXT("Enemy hit player for %.0f damage"),
         AttackDamage);
+}
+
+// Check whether the enemy is stunned
+bool AMazeEnemyCharacter::IsStunned() const
+{
+    return bIsStunned;
+}
+
+// Stun the enemy for a set amount of time
+void AMazeEnemyCharacter::ApplyStun(float Duration)
+{
+    if (!GetWorld() || Duration <= 0.0f)
+    {
+        return;
+    }
+
+    // Refresh the timer if the enemy is already stunned
+    GetWorldTimerManager().ClearTimer(StunTimerHandle);
+
+    if (!bIsStunned)
+    {
+        bIsStunned = true;
+
+        // Stop the current AI behavior
+        if (AAIController* AIController =
+            Cast<AAIController>(GetController()))
+        {
+            AIController->StopMovement();
+
+            if (UBrainComponent* Brain =
+                AIController->GetBrainComponent())
+            {
+                Brain->PauseLogic(TEXT("Enemy stunned"));
+            }
+        }
+
+        // Stop the enemy from moving
+        GetCharacterMovement()->StopMovementImmediately();
+        GetCharacterMovement()->DisableMovement();
+
+        // Stop any attack animation already playing
+        if (UAnimInstance* AnimInstance =
+            GetMesh()->GetAnimInstance())
+        {
+            if (AttackMontage)
+            {
+                // Immediately interrupt the attack animation
+                AnimInstance->Montage_Stop(0.0f, AttackMontage);
+            }
+
+            // Play the stun reaction animation
+            if (StunMontage)
+            {
+                AnimInstance->Montage_Play(StunMontage);
+
+                // Keep repeating the stun loop until the timer expires
+                AnimInstance->Montage_SetNextSection(
+                    FName(TEXT("StunLoop")),
+                    FName(TEXT("StunLoop")),
+                    StunMontage
+                );
+            }
+        }
+    }
+
+    // Start the timer that ends the stun
+    GetWorldTimerManager().SetTimer(
+        StunTimerHandle,
+        this,
+        &AMazeEnemyCharacter::EndStun,
+        Duration,
+        false);
+
+    UE_LOG(LogTemp, Warning, TEXT("Enemy stunned for %.1f seconds"), Duration);
+}
+
+// Return the enemy to its normal AI behavior
+void AMazeEnemyCharacter::EndStun()
+{
+    bIsStunned = false;
+
+    // Play the recovery animation when the stun ends
+    if (StunMontage && GetMesh())
+    {
+        if (UAnimInstance* AnimInstance =
+            GetMesh()->GetAnimInstance())
+        {
+            if (AnimInstance->Montage_IsPlaying(StunMontage))
+            {
+                // Stop looping and transition into recovery
+                AnimInstance->Montage_SetNextSection(
+                    FName(TEXT("StunLoop")),
+                    FName(TEXT("StunEnd")),
+                    StunMontage
+                );
+
+                // Jump directly to the recovery animation
+                AnimInstance->Montage_JumpToSection(
+                    FName(TEXT("StunEnd")),
+                    StunMontage
+                );
+            }
+        }
+    }
+
+    // Allow movement again
+    GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+
+    // Resume our Behavior Tree
+    if (AAIController* AIController =
+        Cast<AAIController>(GetController()))
+    {
+        if (UBrainComponent* Brain =
+            AIController->GetBrainComponent())
+        {
+            Brain->ResumeLogic(TEXT("Stun ended"));
+        }
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Enemy recovered from stun"));
 }
 
 

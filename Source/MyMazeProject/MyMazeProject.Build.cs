@@ -19,7 +19,8 @@ public class MyMazeProject : ModuleRules
         "EnhancedInput",
         "AIModule",
         "GameplayTasks",
-        "NavigationSystem"
+        "NavigationSystem",
+        "Niagara"
             }
         );
 

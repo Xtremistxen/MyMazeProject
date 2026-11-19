@@ -44,9 +44,33 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Combat")
     void ApplyMeleeDamage();
 
+    // ===== Enemy Stun System =====
+
+// Tracks whether this enemy is currently stunned
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stun")
+    bool bIsStunned = false;
+
+    // Animation played while the enemy is stunned
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stun")
+    UAnimMontage* StunMontage = nullptr;
+
+    // Stun this enemy for a set amount of time
+    UFUNCTION(BlueprintCallable, Category = "Stun")
+    void ApplyStun(float Duration);
+
+    // Check if the enemy is stunned
+    UFUNCTION(BlueprintCallable, Category = "Stun")
+    bool IsStunned() const;
+
 
 protected:
     virtual void BeginPlay() override;
+
+    // Called when the stun duration ends
+    void EndStun();
+
+    // Timer that controls how long the enemy stays stunned
+    FTimerHandle StunTimerHandle;
 
 private:
     // Game time when the enemy last attacked

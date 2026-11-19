@@ -10,6 +10,10 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Controller.h"
 #include "Engine/DamageEvents.h"
+#include "MazeEnemyCharacter.h"
+#include "EngineUtils.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 
 AMazeCharacter::AMazeCharacter()
@@ -71,6 +75,10 @@ void AMazeCharacter::SetupPlayerInputComponent(
 
     PlayerInputComponent->BindAxis(
         TEXT("LookUp"), this, &AMazeCharacter::LookUp);
+
+    // Press Q to activate our stun ability
+    PlayerInputComponent->BindAction(
+        TEXT("Stun"), IE_Pressed, this, &AMazeCharacter::ActivateStun);
 }
 
 // Move forward or backward
@@ -214,6 +222,94 @@ void AMazeCharacter::Die()
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Player has died!"));
+}
+
+// Activate the stun ability if it's off cooldown
+void AMazeCharacter::ActivateStun()
+{
+    // Dead players can't use abilities
+    if (bIsDead)
+    {
+        return;
+    }
+
+    const float CurrentTime = GetWorld()->GetTimeSeconds();
+
+    // Check if our stun is still on cooldown
+    if (CurrentTime - LastStunTime < StunCooldown)
+    {
+        const float TimeRemaining =
+            StunCooldown - (CurrentTime - LastStunTime);
+
+        if (GEngine)
+        {
+            GEngine->AddOnScreenDebugMessage(
+                -1, 2.0f, FColor::Yellow,
+                FString::Printf(
+                    TEXT("Stun Cooldown: %.1f seconds"),
+                    TimeRemaining));
+        }
+
+        return;
+    }
+
+    // Start the cooldown
+    LastStunTime = CurrentTime;
+
+    // Show a message so we know the ability fired
+    if (GEngine)
+    {
+        GEngine->AddOnScreenDebugMessage(
+            -1, 2.0f, FColor::Cyan,
+            TEXT("STUN ACTIVATED!"));
+    }
+
+    UE_LOG(LogTemp, Warning, TEXT("Player activated stun ability!"));
+
+    // Check all enemies in the level
+    for (TActorIterator<AMazeEnemyCharacter> It(GetWorld()); It; ++It)
+    {
+        AMazeEnemyCharacter* Enemy = *It;
+
+        if (!IsValid(Enemy))
+        {
+            continue;
+        }
+
+        // Check how close the enemy is to the player
+        const float Distance = FVector::Dist(
+            GetActorLocation(),
+            Enemy->GetActorLocation());
+
+
+        if (Distance <= StunRadius)
+        {
+            // Enemy is close enough to receive the stun
+            UE_LOG(LogTemp, Warning,
+                TEXT("STUN HIT! Enemy distance: %.0f"), Distance);
+
+            Enemy->ApplyStun(StunDuration);
+        }
+        else
+        {
+            // Enemy is outside our stun range
+            UE_LOG(LogTemp, Warning,
+                TEXT("STUN MISSED! Distance: %.0f | Radius: %.0f"),
+                Distance, StunRadius);
+        }
+
+    }
+
+    // Spawn our magical stun burst around the player
+    if (StunEffect)
+    {
+        UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+            GetWorld(),
+            StunEffect,
+            GetActorLocation(),
+            GetActorRotation()
+        );
+    }
 }
 
 
