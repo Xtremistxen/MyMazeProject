@@ -14,6 +14,8 @@
 #include "EngineUtils.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "TimerManager.h"
 
 
 AMazeCharacter::AMazeCharacter()
@@ -311,6 +313,98 @@ void AMazeCharacter::ActivateStun()
         );
     }
 }
+
+
+float AMazeCharacter::Heal(float HealAmount)
+{
+    // Don't heal dead players or accept negative healing
+    if (bIsDead || HealAmount <= 0.0f)
+    {
+        return 0.0f;
+    }
+
+    // Remember our health before healing
+    float OldHealth = _currentHealth;
+
+    // Add health, but never go over max health
+    _currentHealth = FMath::Clamp(
+        _currentHealth + HealAmount,
+        0.0f,
+        maxHealth
+    );
+
+    // Figure out how much health we actually gained
+    float ActualHealing = _currentHealth - OldHealth;
+
+    // Print the new health so we can test our meat pickup
+    UE_LOG(LogTemp, Warning,
+        TEXT("Player healed for %.0f HP | Health: %.0f / %.0f"),
+        ActualHealing,
+        _currentHealth,
+        maxHealth
+    );
+
+    return ActualHealing;
+}
+
+
+void AMazeCharacter::ApplySpeedBoost(float SpeedMultiplier, float Duration)
+{
+    // Make sure our speed boost values are valid
+    if (SpeedMultiplier <= 1.0f || Duration <= 0.0f || bIsDead)
+    {
+        return;
+    }
+
+    UCharacterMovementComponent* Movement = GetCharacterMovement();
+
+    if (!Movement)
+    {
+        return;
+    }
+
+    // Only save our normal speed when the first boost starts
+    if (!GetWorldTimerManager().IsTimerActive(SpeedBoostTimerHandle))
+    {
+        OriginalWalkSpeed = Movement->MaxWalkSpeed;
+    }
+
+    // Give the player a temporary speed boost
+    Movement->MaxWalkSpeed = OriginalWalkSpeed * SpeedMultiplier;
+
+    // Restart the timer if another bread pickup is collected
+    GetWorldTimerManager().ClearTimer(SpeedBoostTimerHandle);
+
+    GetWorldTimerManager().SetTimer(
+        SpeedBoostTimerHandle,
+        this,
+        &AMazeCharacter::ResetMovementSpeed,
+        Duration,
+        false
+    );
+
+    UE_LOG(LogTemp, Warning,
+        TEXT("Bread speed boost activated! Speed: %.0f for %.1f seconds"),
+        Movement->MaxWalkSpeed,
+        Duration);
+}
+
+void AMazeCharacter::ResetMovementSpeed()
+{
+    // Bread wore off, so put our movement speed back
+    UCharacterMovementComponent* Movement = GetCharacterMovement();
+
+    if (Movement && OriginalWalkSpeed > 0.0f)
+    {
+        Movement->MaxWalkSpeed = OriginalWalkSpeed;
+
+        UE_LOG(LogTemp, Warning,
+            TEXT("Bread speed boost ended! Speed back to %.0f"),
+            OriginalWalkSpeed);
+    }
+}
+
+
 
 
 

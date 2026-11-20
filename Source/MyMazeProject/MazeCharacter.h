@@ -17,11 +17,25 @@ class MYMAZEPROJECT_API AMazeCharacter : public ACharacter
     GENERATED_BODY()
 
 public:
-    AMazeCharacter();
+       AMazeCharacter();
 
     // Maximum player health
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
     float maxHealth = 100.0f;
+
+    // Restore player health without going over max health
+    // Returns how much health was actually restored
+    UFUNCTION(BlueprintCallable, Category = "Combat")
+    float Heal(float HealAmount);
+
+
+    // Give the player a temporary speed boost from bread
+    UFUNCTION(BlueprintCallable, Category = "Pickup")
+    void ApplySpeedBoost(float SpeedMultiplier, float Duration);
+
+    // Put the player's movement speed back to normal
+    void ResetMovementSpeed();
+
 
     // Apply incoming damage and return the actual damage taken
     virtual float TakeDamage(
@@ -89,5 +103,16 @@ protected:
     // Camera attached to the boom
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
     UCameraComponent* FollowCamera;
+
+
+    // Remember the player's normal movement speed
+    float OriginalWalkSpeed = 0.0f;
+
+    // Timer for when the bread boost wears off
+    FTimerHandle SpeedBoostTimerHandle;
+
 };
+
+
+
 
