@@ -18,10 +18,12 @@ public:
     // Set up the basic pickup actor
     AMazePickup();
 
+
     // Every pickup needs its own effect
     // Meat heals, bread boosts speed, etc.
-    // Each child pickup overrides this to apply its own effect
-    virtual void ApplyPickupEffect(AActor* OtherActor);
+    virtual void ApplyPickupEffect(AActor* OtherActor)
+        PURE_VIRTUAL(AMazePickup::ApplyPickupEffect, );
+
 
 protected:
     // Runs when the pickup first appears

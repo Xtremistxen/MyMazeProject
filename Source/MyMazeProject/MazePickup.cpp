@@ -77,11 +77,5 @@ void AMazePickup::OnPickupOverlap(
     ApplyPickupEffect(OtherActor);
 }
 
-void AMazePickup::ApplyPickupEffect(AActor* OtherActor)
-{
-    // Child pickups should override this function
-    UE_LOG(LogTemp, Warning,
-        TEXT("Pickup effect not implemented in child class!"));
-}
 
 
